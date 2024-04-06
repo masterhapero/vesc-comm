@@ -1,6 +1,6 @@
 [package]
 name = "vesc-comm"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Ferdia McKeogh <ferdia@mckeogh.tech>"]
 edition = "2021"
 keywords = ["nostd", "robotics", "embedded-hal-driver"]
@@ -15,7 +15,7 @@ byteorder = { version = "1.4.3", default-features = false }
 nb = "1.0.0"
 embedded-hal = "0.2.7"
 failure = { version = "0.1.8", default-features = false, features = ["derive"] }
-heapless = "0.7.16"
+heapless = "0.8.0"
 crc16 = "0.4.0"
 
 [dev-dependencies]
