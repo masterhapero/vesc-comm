@@ -35,21 +35,31 @@ impl<R: Read<u8>, W: Write<u8>> VescConnection<R, W> {
             return Err(nb::Error::Other(Error::ParseError));
         }
 
-        let mut uuid = [0u8; 12];
-        for i in 0..12 {
-            uuid[i] = payload[payload.len() - 12 + i];
-        }
+        // Reference
+        // https://github.com/vedderb/vesc_tool/blob/release_3_01/commands.cpp#L105
+        let major = payload[1];
+        let minor = payload[2];
 
-        // Longest currently defined HW_NAME is 10 characters
-        // No fixed length hence ugly reading
-        let mut hw = [0u8; 10];
-        for i in 0..(payload.len() - 15) {
-            hw[i] = payload[3 + i];
+        let mut uuid = None;
+        let mut hw = None;
+        if payload.len() > 3 {
+            let mut uuid_data = [0u8; 12];
+            for i in 0..12 {
+                uuid_data[i] = payload[payload.len() - 12 + i];
+            }
+            uuid = Some(uuid_data);
+            // Longest currently defined HW_NAME is 10 characters
+            // No fixed length hence ugly reading
+            let mut hw_data = [0u8; 10];
+            for i in 0..(payload.len() - 15) {
+                hw_data[i] = payload[3 + i];
+            }
+            hw = Some(hw_data);
         }
 
         Ok(responses::FwVersion {
-            major: payload[1],
-            minor: payload[2],
+            major: major,
+            minor: minor,
             hw,
             uuid,
         })
@@ -64,6 +74,11 @@ impl<R: Read<u8>, W: Write<u8>> VescConnection<R, W> {
         if payload[0] != Command::GetValues.value() {
             return Err(nb::Error::Other(Error::ParseError));
         }
+
+        // Packet format varies between versions
+
+        // https://github.com/vedderb/vesc_tool/blob/release_3_01/commands.cpp#L171
+        // https://github.com/vedderb/bldc-tool/blob/master/packetinterface.cpp#L346
 
         Ok(responses::Values {
             temp_fet: f32::from(BigEndian::read_u16(&payload[1..3])) / 10.0,
@@ -82,7 +97,13 @@ impl<R: Read<u8>, W: Write<u8>> VescConnection<R, W> {
             tachometer: BigEndian::read_u32(&payload[45..49]),
             tachometer_abs: BigEndian::read_u32(&payload[49..53]),
             fault: responses::Fault::from_u8(payload[53]).unwrap(),
-            pid_pos: BigEndian::read_u32(&payload[54..58]) as f32 / 1_000_000.0,
+            pid_pos: {
+                if payload.len() >= 58 {
+                    Some(BigEndian::read_u32(&payload[54..58]) as f32 / 1_000_000.0)
+                } else {
+                    None
+                }
+            },
             controller_id: 0,
         })
     }
@@ -106,6 +127,17 @@ impl<R: Read<u8>, W: Write<u8>> VescConnection<R, W> {
 
         BigEndian::write_u32(&mut payload[1..], val);
 
+        write_packet(&payload, &mut self.w)?;
+
+        Ok(())
+    }
+
+    /// Sets RPM value based control for VESC
+    pub fn set_rpm(&mut self, val: i32) -> nb::Result<(), Error> {
+        let mut payload = [0u8; 5];
+        payload[0] = Command::SetRpm.value();
+
+        BigEndian::write_i32(&mut payload[1..], val);
         write_packet(&payload, &mut self.w)?;
 
         Ok(())

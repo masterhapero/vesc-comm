@@ -8,9 +8,9 @@ pub struct FwVersion {
     /// Minor version
     pub minor: u8,
     /// Hardware version
-    pub hw: [u8; 10],
+    pub hw: Option<[u8; 10]>,
     /// 96 bit ID of MCU
-    pub uuid: [u8; 12],
+    pub uuid: Option<[u8; 12]>,
 }
 
 /// Response to `get_values()`
@@ -49,7 +49,7 @@ pub struct Values {
     /// Fault state of controller
     pub fault: Fault,
     /// Motor position ?
-    pub pid_pos: f32,
+    pub pid_pos: Option<f32>,
     /// ID of controller
     pub controller_id: u8,
 }
